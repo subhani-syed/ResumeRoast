@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY:str
 
     MAX_RESUMES_PER_USER: int = 5
+    S3_PRESIGNED_URL_EXPIRE_SECONDS:int = 300
 
     CELERY_BROKER_URL: str
     CELERY_RESULT_BACKEND: str

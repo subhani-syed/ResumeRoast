@@ -52,11 +52,12 @@ def login(
     db.add(session)
     db.commit()
 
+    # Set secure cookie
     response.set_cookie(
         key="session_token",
         value=token,
         httponly=True,
-        secure=False,
+        secure=False,   # True in prod (HTTPS)
         samesite="lax"
     )
 

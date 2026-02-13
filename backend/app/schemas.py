@@ -34,3 +34,18 @@ class ResumeJobRead(BaseModel):
     class Config:
         from_attributes = True
 
+class ResumeResponse(BaseModel):
+    id:str
+    original_filename:str
+    content_type:str
+    created_at:datetime
+class ResumeDetailResponse(BaseModel):
+    resume_id: str
+    filename: str
+    mime_type: str
+    file_size_bytes: int
+    created_at: datetime
+    download_url: str
+class UploadInfoResponse(BaseModel):
+    resume_count: int
+    resume_upload_remaining: int
