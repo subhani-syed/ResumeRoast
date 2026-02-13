@@ -4,8 +4,6 @@ from app import models
 from app.services.llm import generate_roast
 from datetime import datetime
 
-print("🔥 roast_tasks loaded")
-
 @celery_app.task(bind=True)
 def process_roast_job(self, job_id: str):
     db = SessionLocal()

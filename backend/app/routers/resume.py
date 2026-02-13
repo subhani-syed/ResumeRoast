@@ -1,4 +1,3 @@
-import uuid
 from uuid import uuid4
 from typing import List
 from app.dependency import get_current_user,get_db
@@ -134,8 +133,13 @@ def upload_resume(
     file:UploadFile = File(...),
     current_user:User=Depends(get_current_user),
     db:Session = Depends(get_db)
-    ):
+):
+    """
+    Upload a resume file for the authenticated user.
 
+    Validates file type, enforces upload quota, stores the file in S3,
+    and creates a database record for tracking.
+    """
     resume_count = (
         db.query(func.count(Resume.resume_id))
         .filter(Resume.user_id == current_user.user_id)
@@ -148,8 +152,6 @@ def upload_resume(
             detail=f"You can only upload {MAX_RESUMES} resumes."
         )
 
-
-
     if file.content_type not in [
         "application/pdf",
         "application/msword",
@@ -157,29 +159,28 @@ def upload_resume(
     ]:
         raise HTTPException(status_code=400, detail="Invalid file type")
 
-    resume_id = str(uuid.uuid4())
-    s3_key_path = UPLOAD_DIR / f"users/{current_user.user_id}/resumes/{resume_id}/{file.filename}"
-    # s3_key_path = f"users/{current_user.user_id}/resumes/{resume_id}/{file.filename}"
-    s3_key = str(s3_key_path)
-    # Find the file size in bytes
+    resume_id = str(uuid4())
+
+    file.file.seek(0, 2)
+    file_size_bytes = file.file.tell()
+    file.file.seek(0)
+
+    s3_key_path = f"users/{current_user.user_id}/resumes/{resume_id}"
+    resume_key = f"{s3_key_path}/resume"
+    s3_key = str(resume_key)
 
     try:
-        # s3_client.upload_fileobj(
-        #     file.file,
-        #     S3_BUCKET,
-        #     s3_key,
-        #     ExtraArgs={
-        #         "ContentType": file.content_type,
-        #     },
-        # )
-        s3_key_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(s3_key,"wb") as f:
-            f.write(file.file.read())
+        s3_client.upload_fileobj(
+            file.file,
+            S3_BUCKET,
+            resume_key,
+            ExtraArgs={
+                "ContentType": file.content_type,
+            },
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload to S3 : {e}")
 
-    file_size_bytes = s3_key_path.stat().st_size
-    # file_size_bytes = 100
     resume = Resume(
         resume_id=resume_id,
         user_id=current_user.user_id,
@@ -190,7 +191,7 @@ def upload_resume(
         mime_type=file.content_type,
     )
 
-    # Add Thumbnail task to the queue
+    generate_thumbnail_task.delay(resume.resume_id)
 
     db.add(resume)
     db.commit()
@@ -198,8 +199,6 @@ def upload_resume(
 
     return {
         "resume_id": resume.resume_id,
-        # "s3_bucket": resume.s3_bucket,
-        "s3_key": resume.s3_key,
         "filename": resume.original_filename,
     }
 
