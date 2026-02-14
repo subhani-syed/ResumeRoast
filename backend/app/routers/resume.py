@@ -49,15 +49,26 @@ def get_resumes(
         .order_by(Resume.created_at.desc())
         .all()
     )
-    return [
-        {
-            "id": r.resume_id,
-            "original_filename": r.original_filename,
-            "content_type": r.mime_type,
-            "created_at": r.created_at,
-        }
-        for r in resumes
-    ]
+    response = []
+
+    for resume in resumes:
+        thumbnail_url = None
+
+        if resume.thumbnail_key:
+            thumbnail_url = generate_presigned_url(
+                bucket=resume.s3_bucket,
+                key=resume.s3_key,
+                expires_in=3600,
+            )
+
+        response.append({
+            "id": resume.resume_id,
+            "filename": resume.original_filename,
+            "content_type": resume.mime_type,
+            "created_at": resume.created_at,
+            "thumbnail": str(thumbnail_url)
+        })
+    return response
 
 @router.get("/{resume_id}", response_model = ResumeDetailResponse)
 def get_resume(
@@ -202,7 +213,7 @@ def upload_resume(
     db.add(resume)
     db.commit()
     db.refresh(resume)
-    
+
     generate_thumbnail_task.delay(resume.resume_id)
 
     return {

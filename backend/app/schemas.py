@@ -39,6 +39,8 @@ class ResumeResponse(BaseModel):
     original_filename:str
     content_type:str
     created_at:datetime
+    thumbnail:str
+
 class ResumeDetailResponse(BaseModel):
     resume_id: str
     filename: str
@@ -46,6 +48,7 @@ class ResumeDetailResponse(BaseModel):
     file_size_bytes: int
     created_at: datetime
     download_url: str
+
 class UploadInfoResponse(BaseModel):
     resume_count: int
     resume_upload_remaining: int
