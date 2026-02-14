@@ -35,6 +35,7 @@ class Resume(Base):
     s3_key: Mapped[str] = mapped_column(Text, nullable=False)
     thumbnail_key: Mapped[str] = mapped_column(Text, nullable=True)
     original_filename: Mapped[str] = mapped_column(String(255))
+    raw_resume_text: Mapped[str] = mapped_column(Text,nullable=True)
     file_size_bytes: Mapped[int] = mapped_column(Integer)
     mime_type: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
