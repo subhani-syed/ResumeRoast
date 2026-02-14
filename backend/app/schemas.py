@@ -36,7 +36,7 @@ class ResumeJobRead(BaseModel):
 
 class ResumeResponse(BaseModel):
     id:str
-    original_filename:str
+    filename:str
     content_type:str
     created_at:datetime
     thumbnail:str

@@ -57,7 +57,7 @@ def get_resumes(
         if resume.thumbnail_key:
             thumbnail_url = generate_presigned_url(
                 bucket=resume.s3_bucket,
-                key=resume.s3_key,
+                key=resume.thumbnail_key,
                 expires_in=3600,
             )
 
