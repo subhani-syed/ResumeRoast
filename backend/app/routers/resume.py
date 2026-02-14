@@ -199,11 +199,11 @@ def upload_resume(
         mime_type=file.content_type,
     )
 
-    generate_thumbnail_task.delay(resume.resume_id)
-
     db.add(resume)
     db.commit()
     db.refresh(resume)
+    
+    generate_thumbnail_task.delay(resume.resume_id)
 
     return {
         "resume_id": resume.resume_id,
