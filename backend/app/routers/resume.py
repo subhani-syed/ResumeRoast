@@ -1,3 +1,4 @@
+from io import BytesIO
 from uuid import uuid4
 from typing import List
 from app.dependency import get_current_user,get_db
@@ -7,6 +8,7 @@ from app.utils.s3 import s3_client,generate_presigned_url
 from app.tasks.roast_task import process_roast_job
 from app.tasks.thumbnail import generate_thumbnail_task
 from app.config import settings
+from app.utils.text_extraction import extract_text_from_file
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
@@ -161,9 +163,14 @@ def upload_resume(
 
     resume_id = str(uuid4())
 
-    file.file.seek(0, 2)
-    file_size_bytes = file.file.tell()
     file.file.seek(0)
+    file_bytes = file.file.read()
+
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    file_size_bytes = len(file_bytes)
+    raw_text = extract_text_from_file(file_bytes, file.content_type)
 
     s3_key_path = f"users/{current_user.user_id}/resumes/{resume_id}"
     resume_key = f"{s3_key_path}/resume"
@@ -171,7 +178,7 @@ def upload_resume(
 
     try:
         s3_client.upload_fileobj(
-            file.file,
+            BytesIO(file_bytes),
             S3_BUCKET,
             resume_key,
             ExtraArgs={
@@ -187,6 +194,7 @@ def upload_resume(
         s3_bucket=S3_BUCKET,
         s3_key=s3_key,
         original_filename=file.filename,
+        raw_resume_text = raw_text,
         file_size_bytes=file_size_bytes,
         mime_type=file.content_type,
     )
