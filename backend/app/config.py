@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str
     CELERY_RESULT_BACKEND: str
 
+    GROQ_API_KEY:str
+    LLM_MODEL:str
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
