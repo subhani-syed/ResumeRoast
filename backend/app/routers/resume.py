@@ -17,9 +17,6 @@ from sqlalchemy import func,desc
 S3_BUCKET = settings.S3_BUCKET_NAME
 MAX_RESUMES = settings.MAX_RESUMES_PER_USER
 
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
-
 router = APIRouter(prefix="/resume", tags=["auth"])
 
 @router.get("/", response_model=List[ResumeResponse])
@@ -70,6 +67,32 @@ def get_resumes(
         })
     return response
 
+@router.get("/upload", response_model = UploadInfoResponse)
+def get_upload_information(
+    current_user:User = Depends(get_current_user),
+    db:Session = Depends(get_db)
+):
+    """
+    Retrieve resume upload quota information for the authenticated user.
+
+    Returns:
+        UploadInfoResponse:
+            - resume_count: Total resumes uploaded by the user.
+            - resume_upload_remaining: Remaining upload capacity.
+    """
+    resume_count = (
+        db.query(func.count(Resume.resume_id))
+        .filter(Resume.user_id == current_user.user_id)
+        .scalar()
+    )
+    resume_remaining = max(0, MAX_RESUMES - resume_count)
+
+    return {
+        "resume_count": resume_count,
+        "resume_upload_remaining": resume_remaining
+    }
+
+
 @router.get("/{resume_id}", response_model = ResumeDetailResponse)
 def get_resume(
     resume_id:str,
@@ -114,31 +137,6 @@ def get_resume(
         "file_size_bytes": resume.file_size_bytes,
         "created_at": resume.created_at,
         "download_url": download_url,
-    }
-
-@router.get("/upload", response_model = UploadInfoResponse)
-def get_upload_information(
-    current_user:User = Depends(get_current_user),
-    db:Session = Depends(get_db)
-):
-    """
-    Retrieve resume upload quota information for the authenticated user.
-
-    Returns:
-        UploadInfoResponse:
-            - resume_count: Total resumes uploaded by the user.
-            - resume_upload_remaining: Remaining upload capacity.
-    """
-    resume_count = (
-        db.query(func.count(Resume.resume_id))
-        .filter(Resume.user_id == current_user.user_id)
-        .scalar()
-    )
-    resume_remaining = max(0, MAX_RESUMES - resume_count)
-
-    return {
-        "resume_count": resume_count,
-        "resume_upload_remaining": resume_remaining
     }
 
 @router.post("/upload")
@@ -250,7 +248,7 @@ def get_latest_roast(
     if not latest_roast:
         raise HTTPException(status_code=200, detail="No roast found")
     return {
-        "roast_id": latest_roast.roast_id,
+        "job_id": latest_roast.job_id,
         "resume_id": latest_roast.resume_id,
         "roast_text": latest_roast.roast_text,
         "created_at": latest_roast.created_at,
@@ -309,7 +307,7 @@ def create_resume_roast(
     process_roast_job.delay(job.job_id)
 
     return {
-        "roast_id": roast.job_id,
+        "job_id": roast.job_id,
         "status": roast.status,
         "message": "Roast started",
     }
@@ -349,7 +347,6 @@ def get_roast(
         raise HTTPException(status_code=404, detail="Roast not found")
 
     return {
-        "roast_id": roast.roast_id,
         "resume_id": roast.resume_id,
         "status": roast.status,
         "roast_text": roast.roast_text,
