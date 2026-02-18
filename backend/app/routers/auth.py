@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.db import SessionLocal
@@ -65,6 +65,28 @@ def login(
 
 
 @router.post("/logout")
-def logout(response: Response, db: Session = Depends(get_db)):
-    response.delete_cookie("session_token")
-    return {"message": "Logged out"}
+def logout(
+    request:Request,
+    response: Response,
+    db: Session = Depends(get_db)
+):
+    session_id = request.cookies.get("session_token")
+
+    if session_id:
+        session = (
+            db.query(models.UserSession)
+            .filter(models.UserSession.session_id == session_id)
+            .first()
+        )
+
+        if session:
+            session.is_revoked = True
+            db.commit()
+
+    response.delete_cookie(
+        key="session_token",
+        httponly=True,
+        secure=False,
+        samesite="lax"
+    )
+    return {"message": "Logged out successfully"}

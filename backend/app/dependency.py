@@ -28,6 +28,9 @@ def get_current_user(
 
     if not session:
         raise HTTPException(status_code=401, detail="Invalid session")
+    
+    if session.is_revoked:
+        raise HTTPException(status_code=401, detail="Session revoked")
 
     if session.expires_at < datetime.utcnow():
         raise HTTPException(status_code=401, detail="Session expired")
