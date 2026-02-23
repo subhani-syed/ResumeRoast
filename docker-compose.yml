@@ -1,0 +1,45 @@
+services:
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+  db:
+    image: postgres:17
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "54333:5432"
+  server:
+    build: ./backend
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+    ports:
+      - "8000:8000"
+  celery:
+    build: ./backend
+    command: celery -A app.celery_app worker --loglevel=debug
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - server
+      - db
+  ui:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        IMAGE_HOSTNAME: ${IMAGE_HOSTNAME}
+    env_file:
+      - .env
+    depends_on:
+      - server
+    ports:
+      - "3000:3000"
+volumes:
+  postgres_data: {}
