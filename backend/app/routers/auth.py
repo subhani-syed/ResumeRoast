@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
-from datetime import datetime
-from app.db import SessionLocal
 from app import models
 from app.auth import (
     hash_password,
@@ -11,6 +10,8 @@ from app.auth import (
 )
 from app.dependency import get_db
 from app.schemas import UserCreate, LoginUser
+from app.oauth import oauth
+from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -34,17 +35,26 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(
-    data:LoginUser,
+    data: LoginUser,
     response: Response,
     db: Session = Depends(get_db)
 ):
     user = db.query(models.User).filter_by(email=data.email).first()
-    if not user or not verify_password(data.password, user.password_hash):
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_session_token()
+    if user.auth_provider == "google" or user.password_hash is None:
+        raise HTTPException(
+            status_code=400,
+            detail="This account uses Google Sign-In. Please log in with Google."
+        )
+
+    if not verify_password(data.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    session_token = create_session_token()
     session = models.UserSession(
-        session_id=token,
+        session_id=session_token,
         user_id=user.user_id,
         expires_at=get_session_expiry()
     )
@@ -52,21 +62,89 @@ def login(
     db.add(session)
     db.commit()
 
-    # Set secure cookie
     response.set_cookie(
         key="session_token",
-        value=token,
+        value=session_token,
         httponly=True,
-        secure=False,   # True in prod (HTTPS)
-        samesite="lax"
+        secure=False,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7,
     )
 
     return {"message": "Logged in"}
 
 
+@router.get("/google/login")
+async def google_login(request: Request):
+    return await oauth.google.authorize_redirect(
+        request,
+        settings.GOOGLE_REDIRECT_URI
+    )
+
+@router.get("/google/callback")
+async def google_callback(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db)
+):
+    google_token = await oauth.google.authorize_access_token(request)
+
+    try:
+        user_info = await oauth.google.parse_id_token(request, google_token)
+    except KeyError:
+        user_info = await oauth.google.userinfo(token=google_token)
+
+    if not user_info or not user_info.get("email_verified"):
+        raise HTTPException(status_code=400, detail="Email not verified")
+
+    email = user_info['email']
+    google_id = user_info['sub']
+
+    user = db.query(models.User).filter_by(google_id=google_id).first()
+
+    if not user:
+        user = db.query(models.User).filter_by(email=email).first()
+
+        if user:
+            user.google_id = google_id
+            user.auth_provider = "google"
+            db.commit()
+        else:
+            user = models.User(
+                email=email,
+                google_id=google_id,
+                auth_provider="google",
+                password_hash=None,
+            )
+            db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    session_token = create_session_token()
+    session = models.UserSession(
+        session_id=session_token,
+        user_id=user.user_id,
+        expires_at=get_session_expiry()
+    )
+    db.add(session)
+    db.commit()
+
+    response = RedirectResponse(settings.FRONTEND_CALLBACK_URL)
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7,
+    )
+
+    return response
+
+
 @router.post("/logout")
 def logout(
-    request:Request,
+    request: Request,
     response: Response,
     db: Session = Depends(get_db)
 ):
