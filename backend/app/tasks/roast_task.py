@@ -5,24 +5,41 @@ from app.services.llm import roast_resume
 from app.services.redact import redact_resume_text
 from datetime import datetime
 
-@celery_app.task(bind=True,max_retries=3)
+
+@celery_app.task(bind=True, max_retries=3)
 def process_roast_job(self, job_id: str):
     """
     Background task to generate a resume roast.
     """
     db = SessionLocal()
     job = None
+    roast = None
 
     try:
-        job = db.query(models.Job).filter_by(job_id=job_id).first()
+        job = (
+            db.query(models.Job)
+            .filter_by(job_id=job_id)
+            .first()
+        )
         if not job:
             raise Exception(f"Job not found: {job_id}")
-        
+
+        roast = (
+            db.query(models.Roast)
+            .filter_by(job_id=job.job_id)
+            .first()
+        )
+        if not roast:
+            raise Exception(f"Roast record not found for job_id={job.job_id}")
+
         job.status = models.JobStatus.running
         db.commit()
 
-        resume = db.query(models.Resume).filter_by(resume_id=job.resume_id).first()
-
+        resume = (
+            db.query(models.Resume)
+            .filter_by(resume_id=job.resume_id)
+            .first()
+        )
         if not resume:
             raise Exception(f"Resume not found: {job.resume_id}")
 
@@ -38,15 +55,6 @@ def process_roast_job(self, job_id: str):
         job.progress_percent = 80
         db.commit()
 
-        roast = (
-            db.query(models.Roast)
-            .filter_by(job_id=job.job_id)
-            .first()
-        )
-
-        if not roast:
-            raise Exception(f"Roast record not found for job_id={job.job_id}")
-
         roast.roast_text = roast_text
         roast.status = models.JobStatus.success
         roast.updated_at = datetime.utcnow()
@@ -61,7 +69,10 @@ def process_roast_job(self, job_id: str):
         if job:
             job.status = models.JobStatus.failed
             job.error_message = str(e)
-            db.commit()
+        if roast is not None:
+            roast.status = models.JobStatus.failed
+
+        db.commit()
         raise
 
     finally:
