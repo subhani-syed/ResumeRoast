@@ -3,6 +3,7 @@
 import { config } from "@/lib/config";
 import Image from "next/image";
 import Link from "next/link";
+import { toast } from "sonner";
 
 import { useEffect, useState } from "react";
 
@@ -12,6 +13,17 @@ export default function HomePage() {
   const [resumes, setResumes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(globalThis.location.search);
+    if (params.get("welcome") === "true") {
+      globalThis.history.replaceState({}, "", "/home");
+      setTimeout(() => {
+        toast.success("Welcome back. Ready to roast? 🔥");
+      }, 100);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchResumes = async () => {
       try {
