@@ -1,23 +1,24 @@
 from io import BytesIO
 from uuid import uuid4
+from datetime import datetime
 from typing import List
-from app.dependency import get_current_user,get_db
-from app.schemas import ResumeResponse,ResumeDetailResponse,UploadInfoResponse
-from app.models import User,Resume, Roast, Job, JobStatus
-from app.utils.s3 import s3_client,generate_presigned_url
+from app.dependency import get_current_user, get_db
+from app.schemas import ResumeResponse, ResumeDetailResponse, UploadInfoResponse
+from app.models import User, Resume, Roast, Job, JobStatus
+from app.utils.s3 import s3_client, generate_presigned_url
 from app.tasks.roast_task import process_roast_job
 from app.tasks.thumbnail import generate_thumbnail_task
 from app.config import settings
 from app.utils.text_extraction import extract_text_from_file
-from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
-from sqlalchemy import func,desc
+from sqlalchemy import func, desc
 
 S3_BUCKET = settings.S3_BUCKET_NAME
 MAX_RESUMES = settings.MAX_RESUMES_PER_USER
 
 router = APIRouter(prefix="/resume", tags=["auth"])
+
 
 @router.get("/", response_model=List[ResumeResponse])
 def get_resumes(
@@ -42,7 +43,10 @@ def get_resumes(
     """
     resumes = (
         db.query(Resume)
-        .filter(Resume.user_id == current_user.user_id)
+        .filter(
+            Resume.user_id == current_user.user_id,
+            Resume.is_deleted == False
+        )
         .order_by(Resume.created_at.desc())
         .all()
     )
@@ -67,10 +71,11 @@ def get_resumes(
         })
     return response
 
-@router.get("/upload", response_model = UploadInfoResponse)
+
+@router.get("/upload", response_model=UploadInfoResponse)
 def get_upload_information(
-    current_user:User = Depends(get_current_user),
-    db:Session = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Retrieve resume upload quota information for the authenticated user.
@@ -82,7 +87,10 @@ def get_upload_information(
     """
     resume_count = (
         db.query(func.count(Resume.resume_id))
-        .filter(Resume.user_id == current_user.user_id)
+        .filter(
+            Resume.user_id == current_user.user_id,
+            Resume.is_deleted == False
+        )
         .scalar()
     )
     resume_remaining = max(0, MAX_RESUMES - resume_count)
@@ -93,11 +101,11 @@ def get_upload_information(
     }
 
 
-@router.get("/{resume_id}", response_model = ResumeDetailResponse)
+@router.get("/{resume_id}", response_model=ResumeDetailResponse)
 def get_resume(
-    resume_id:str,
-    current_user:User = Depends(get_current_user),
-    db:Session = Depends(get_db)
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Retrieve metadata and a temporary download URL for a specific resume.
@@ -116,7 +124,8 @@ def get_resume(
         db.query(Resume)
         .filter(
             Resume.resume_id == resume_id,
-            Resume.user_id == current_user.user_id
+            Resume.user_id == current_user.user_id,
+            Resume.is_deleted == False
         )
         .first()
     )
@@ -139,11 +148,41 @@ def get_resume(
         "download_url": download_url,
     }
 
+
+@router.delete("/{resume_id}")
+def delete_resume(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Soft delete a resume owned by the authenticated user.
+
+    Returns:
+        dict: Confirmation message indicating successful soft deletion.
+    """
+    resume = db.query(Resume).filter_by(
+        resume_id=resume_id,
+        user_id=current_user.user_id,
+        is_deleted=False
+    ).first()
+
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    resume.is_deleted = True
+    resume.deleted_at = datetime.now()
+
+    db.commit()
+
+    return {"detail": "Resume deleted successfully"}
+
+
 @router.post("/upload")
 def upload_resume(
-    file:UploadFile = File(...),
-    current_user:User=Depends(get_current_user),
-    db:Session = Depends(get_db)
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Upload a resume file for the authenticated user.
@@ -153,7 +192,10 @@ def upload_resume(
     """
     resume_count = (
         db.query(func.count(Resume.resume_id))
-        .filter(Resume.user_id == current_user.user_id)
+        .filter(
+            Resume.user_id == current_user.user_id,
+            Resume.is_deleted == False
+        )
         .scalar()
     )
 
@@ -195,7 +237,8 @@ def upload_resume(
             },
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to upload to S3 : {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to upload to S3 : {e}")
 
     resume = Resume(
         resume_id=resume_id,
@@ -203,7 +246,7 @@ def upload_resume(
         s3_bucket=S3_BUCKET,
         s3_key=s3_key,
         original_filename=file.filename,
-        raw_resume_text = raw_text,
+        raw_resume_text=raw_text,
         file_size_bytes=file_size_bytes,
         mime_type=file.content_type,
     )
@@ -219,19 +262,23 @@ def upload_resume(
         "filename": resume.original_filename,
     }
 
+
 @router.get("/{resume_id}/roast")
 def get_latest_roast(
-    resume_id:str,
-    current_user:User=Depends(get_current_user),
-    db:Session=Depends(get_db)
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Retrieve the latest successful roast for a given resume.
     """
     resume = (
         db.query(Resume)
-        .filter(Resume.resume_id == resume_id)
-        .filter(Resume.user_id == current_user.user_id)
+        .filter(
+            Resume.resume_id == resume_id,
+            Resume.user_id == current_user.user_id,
+            Resume.is_deleted == False
+        )
         .first()
     )
     if not resume:
@@ -254,10 +301,11 @@ def get_latest_roast(
         "created_at": latest_roast.created_at,
     }
 
+
 @router.post("/{resume_id}/roast")
 def create_resume_roast(
     resume_id: str,
-    db:Session = Depends(get_db),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -270,13 +318,15 @@ def create_resume_roast(
         .first()
     )
     if pending:
-        raise HTTPException(status_code=409, detail="Roast already in progress")
+        raise HTTPException(
+            status_code=409, detail="Roast already in progress")
 
     resume = (
         db.query(Resume)
         .filter(
             Resume.resume_id == resume_id,
-            Resume.user_id == current_user.user_id
+            Resume.user_id == current_user.user_id,
+            Resume.is_deleted == False
         )
         .first()
     )
@@ -287,7 +337,7 @@ def create_resume_roast(
 
     job = Job(
         job_id=job_id,
-        resume_id = resume_id,
+        resume_id=resume_id,
         user_id=current_user.user_id,
         status=JobStatus.pending,
     )
@@ -296,9 +346,9 @@ def create_resume_roast(
     db.refresh(job)
 
     roast = Roast(
-        job_id = job_id,
-        resume_id = resume_id,
-        status = JobStatus.pending
+        job_id=job_id,
+        resume_id=resume_id,
+        status=JobStatus.pending
     )
     db.add(roast)
     db.commit()
@@ -312,11 +362,12 @@ def create_resume_roast(
         "message": "Roast started",
     }
 
-@router.get("/{resume_id}/roast/{roast_id}")
+
+@router.get("/{resume_id}/roast/{job_id}")
 def get_roast(
-    resume_id:str,
-    roast_id:str,
-    current_user:User = Depends(get_current_user),
+    resume_id: str,
+    job_id: str,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -326,7 +377,9 @@ def get_roast(
         db.query(Resume)
         .filter(
             Resume.resume_id == resume_id,
-            Resume.user_id == current_user.user_id
+            Resume.user_id == current_user.user_id,
+            Resume.is_deleted == False
+
         )
         .first()
     )
@@ -337,7 +390,7 @@ def get_roast(
     roast = (
         db.query(Roast)
         .filter(
-            Roast.job_id == roast_id,
+            Roast.job_id == job_id,
             Roast.resume_id == resume_id
         )
         .first()

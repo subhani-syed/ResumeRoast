@@ -13,6 +13,30 @@ export default function HomePage() {
   const [resumes, setResumes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [resumeToDelete, setResumeToDelete] = useState(null);
+
+  const handleDelete = async () => {
+    if (!resumeToDelete) return;
+
+    try {
+      setLoading(true);
+
+      const res = await fetch(`${API_ENDPOINT}/resume/${resumeToDelete}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error("Delete failed");
+
+      setResumes((prev) => prev.filter((r) => r.id !== resumeToDelete));
+      toast.success("Successfully deleted Resume");
+      setResumeToDelete(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(globalThis.location.search);
@@ -83,13 +107,19 @@ export default function HomePage() {
             <div className="p-4">
               <p className="font-medium truncate">{resume.filename}</p>
 
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex justify-between">
                 <a
                   href={`/resume/${resume.id}`}
                   className="text text-orange-500 hover:scale-105 transition"
                 >
                   View
                 </a>
+                <button
+                  onClick={() => setResumeToDelete(resume.id)}
+                  className="text-red-500 hover:text-red-600 transition hover:scale-105"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           </div>
@@ -105,6 +135,35 @@ export default function HomePage() {
           >
             Upload your first resume
           </Link>
+        </div>
+      )}
+
+      {resumeToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 w-full max-w-sm shadow-2xl border dark:border-white/10">
+            <h2 className="text-lg font-semibold mb-2">Delete Resume?</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              This resume will be moved to trash. You can&apos;t restore it
+              later.
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setResumeToDelete(null)}
+                className="px-4 py-2 text-sm rounded border dark:border-white/20"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleDelete}
+                disabled={loading}
+                className="px-4 py-2 text-sm rounded bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-50"
+              >
+                {loading ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </main>

@@ -43,6 +43,9 @@ class Resume(Base):
     mime_type: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
+    is_deleted = mapped_column(Boolean, default=False, nullable=False)
+    deleted_at = mapped_column(DateTime, nullable=True)
+
     user = relationship("User", back_populates="resumes")
     jobs = relationship("Job", back_populates="resume")
 
