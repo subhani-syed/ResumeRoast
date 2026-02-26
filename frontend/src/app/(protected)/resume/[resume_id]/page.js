@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
@@ -23,6 +23,9 @@ export default function RoastPage() {
   const [generating, setGenerating] = useState(false);
   const [pollingStatus, setPollingStatus] = useState("idle");
 
+  const [resumeToDelete, setResumeToDelete] = useState(null);
+  const router = useRouter();
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -32,7 +35,21 @@ export default function RoastPage() {
         const resumeRes = await fetch(`${API_BASE}/resume/${resume_id}`, {
           credentials: "include",
         });
-        if (!resumeRes.ok) throw new Error("Failed to fetch resume");
+        if (!resumeRes.ok) {
+          if (resumeRes.status === 404) {
+            toast.error("Resume not found or has been deleted.");
+            router.replace("/home");
+            return;
+          }
+
+          if (resumeRes.status === 401) {
+            toast.error("Please login again.");
+            router.replace("/login");
+            return;
+          }
+
+          throw new Error("Failed to fetch resume");
+        }
         const resumeData = await resumeRes.json();
         setResume(resumeData);
 
@@ -52,8 +69,14 @@ export default function RoastPage() {
           setPollingStatus("polling");
         }
       } catch (err) {
-        console.error(err);
+        const status = err?.response?.status;
         toast.error("Something went wrong loading this resume.");
+
+        if (status === 404) {
+          toast.error("Resume not found or has been deleted.");
+          router.replace("/home");
+          return;
+        }
       } finally {
         setLoading(false);
       }
@@ -84,6 +107,15 @@ export default function RoastPage() {
 
         const result = await response.json();
 
+        // Check if roast failed
+        if (result && result.status === "FAILED") {
+          setPollingStatus("failed");
+          toast.error("Failed to generate Roast.");
+          setPollingStatus("idle");
+          if (intervalId) clearInterval(intervalId);
+          return;
+        }
+
         // Check if roast is complete
         if (result && result.roast_text && result.roast_text !== "") {
           setRoast(result);
@@ -99,7 +131,6 @@ export default function RoastPage() {
           if (intervalId) clearInterval(intervalId);
         }
       } catch (err) {
-        console.error("Polling error:", err);
         setPollingStatus("failed");
         toast.error("Failed to check roast status");
         if (intervalId) clearInterval(intervalId);
@@ -135,6 +166,31 @@ export default function RoastPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!resumeToDelete) return;
+
+    try {
+      setLoading(true);
+
+      const res = await fetch(`${API_BASE}/resume/${resumeToDelete}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error("Delete failed");
+
+      setResume(null);
+
+      toast.success("Successfully deleted Resume.");
+      setResumeToDelete(null);
+      router.replace("/home");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen pt-32 px-6">
@@ -146,10 +202,19 @@ export default function RoastPage() {
   return (
     <main className="min-h-screen pt-24 p-4">
       <div className="max-w-7xl mx-auto mb-4 flex items-center justify-between">
-        <Link href="/home" className="text-sm text-gray-500 hover:scale-105 hover:text-white transition">
+        <Link
+          href="/home"
+          className="text-sm text-gray-500 hover:scale-105 hover:text-white transition"
+        >
           Back
         </Link>
         <h1 className="font-medium truncate">{resume?.filename}</h1>
+        <button
+          onClick={() => setResumeToDelete(resume_id)}
+          className="text-red-500 hover:text-red-600 transition hover:scale-105"
+        >
+          Delete
+        </button>
       </div>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -223,6 +288,34 @@ export default function RoastPage() {
           {pollingStatus === "polling" && <RoastLoader />}
         </div>
       </div>
+
+      {resumeToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 w-full max-w-sm shadow-2xl border dark:border-white/10">
+            <h2 className="text-lg font-semibold mb-2">Delete Resume?</h2>
+            <p className="text-sm text-gray-500 mb-6">
+              This resume will be moved to trash. You can't restore it later.
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setResumeToDelete(null)}
+                className="px-4 py-2 text-sm rounded border dark:border-white/20"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleDelete}
+                disabled={loading}
+                className="px-4 py-2 text-sm rounded bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-50"
+              >
+                {loading ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

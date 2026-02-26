@@ -3,6 +3,7 @@
 import { config } from "@/lib/config";
 import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 const API_BASE = config.apiUrl;
 
@@ -57,6 +58,7 @@ export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [resumeCount, setResumeCount] = useState(0);
   const MAX_SIZE_MB = 5;
+  const router = useRouter();
 
   useEffect(() => {
     const getResumeInfo = async () => {
@@ -117,7 +119,7 @@ export default function UploadPage() {
 
       const data = await res.json();
 
-      globalThis.location.href = `/resume/${data.resume_id}`;
+      router.replace(`/resume/${data.resume_id}`);
     } catch (err) {
       console.error(err);
       toast.error("Upload failed. Please try again.");
