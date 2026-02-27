@@ -12,6 +12,19 @@ import uuid
 def utcnow():
     return datetime.utcnow()
 
+class Tier(Base):
+    __tablename__ = "tiers"
+
+    id = mapped_column(Integer, primary_key=True)
+    name = mapped_column(String, unique=True, nullable=False)
+    display_name = mapped_column(String, nullable=False)
+
+    max_resume_uploads = mapped_column(Integer, default=2)
+    max_roasts_daily = mapped_column(Integer, default=2)
+
+    is_active = mapped_column(Boolean, default=True)
+    created_at = mapped_column(DateTime, default=utcnow)
+
 class User(Base):
     __tablename__ = "users"
 
@@ -19,7 +32,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     google_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True)
-    auth_provider: Mapped[str] = mapped_column(String(50), default="local")
+    auth_provider: Mapped[str] = mapped_column(String(50), default="email")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
@@ -28,6 +41,9 @@ class User(Base):
     resumes = relationship("Resume", back_populates="user")
     sessions = relationship("UserSession", back_populates="user")
     jobs = relationship("Job", back_populates="user")
+
+    tier_id = mapped_column(Integer, ForeignKey("tiers.id"), nullable=False)
+    tier = relationship("Tier", lazy="joined")
 
 class Resume(Base):
     __tablename__ = "resumes"

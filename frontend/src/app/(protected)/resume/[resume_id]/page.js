@@ -154,6 +154,13 @@ export default function RoastPage() {
         method: "POST",
         credentials: "include",
       });
+
+      if (res.status === 429) {
+        const errorData = await res.json();
+        toast.error(errorData.detail || "Daily roast limit exceeded.");
+        return;
+      }
+
       if (!res.ok) throw new Error("Failed to create roast");
       const data = await res.json();
       setJobId(data.job_id);
