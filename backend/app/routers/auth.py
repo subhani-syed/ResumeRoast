@@ -8,7 +8,7 @@ from app.auth import (
     create_session_token,
     get_session_expiry,
 )
-from app.dependency import get_db
+from app.dependency import get_db, registration_limit, login_limit
 from app.schemas import UserCreate, LoginUser
 from app.oauth import oauth
 from app.config import settings
@@ -16,7 +16,7 @@ from app.config import settings
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register")
+@router.post("/register", dependencies=[Depends(registration_limit)])
 def register(data: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(models.User).filter_by(email=data.email).first()
     if existing:
@@ -35,7 +35,7 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
     return {"message": "User created"}
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(login_limit)])
 def login(
     data: LoginUser,
     response: Response,

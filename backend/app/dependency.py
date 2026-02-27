@@ -3,6 +3,7 @@ from app.db import SessionLocal
 from app import models
 from app.redis import get_redis
 from app.services.rate_limiter import RateLimiter
+from app.services.ip_rate_limiter import IPRateLimiter
 from app.config import settings
 from fastapi import Depends, HTTPException, Request, status, Response
 from sqlalchemy.orm import Session
@@ -78,4 +79,40 @@ def make_rate_limit_dependency(feature: str):
     return dependency
 
 
+def get_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host
+
+
+def make_ip_rate_limit_dependency(max_requests: int, window_seconds: int):
+    """
+    Factory that creates a dependency for IP based rate limiting.
+
+    Args:
+        max_requests: Maximum number of requests allowed in the window
+        window_seconds: Time window in seconds
+    """
+    def dependency(
+        request: Request,
+        redis: Redis = Depends(get_redis),
+    ):
+        ip = get_client_ip(request)
+        route = request.url.path
+        limiter = IPRateLimiter(redis)
+        allowed = limiter.check(ip, route, max_requests, window_seconds)
+
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many requests from this IP",
+                headers={"Retry-After": str(window_seconds)},
+            )
+
+    return dependency
+
+
+registration_limit = make_ip_rate_limit_dependency(max_requests=3, window_seconds=settings.TTL_SECONDS)
+login_limit = make_ip_rate_limit_dependency(max_requests=10,window_seconds=3600)
 roast_limit = make_rate_limit_dependency("max_roasts_daily")
