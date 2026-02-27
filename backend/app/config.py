@@ -25,6 +25,9 @@ class Settings(BaseSettings):
 
     SECRET_KEY:str
 
+    REDIS_URL:str
+    TTL_SECONDS:int
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
