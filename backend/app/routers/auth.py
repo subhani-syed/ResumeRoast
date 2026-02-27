@@ -22,9 +22,11 @@ def register(data: UserCreate, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    tier = db.query(models.Tier).filter_by(name="free").first()
     user = models.User(
         email=data.email,
-        password_hash=hash_password(data.password)
+        password_hash=hash_password(data.password),
+        tier_id=tier.id
     )
     db.add(user)
     db.commit()
@@ -81,6 +83,7 @@ async def google_login(request: Request):
         settings.GOOGLE_REDIRECT_URI
     )
 
+
 @router.get("/google/callback")
 async def google_callback(
     request: Request,
@@ -102,12 +105,15 @@ async def google_callback(
 
     user = db.query(models.User).filter_by(google_id=google_id).first()
 
+    tier = db.query(models.Tier).filter_by(name="google").first()
+
     if not user:
         user = db.query(models.User).filter_by(email=email).first()
 
         if user:
             user.google_id = google_id
             user.auth_provider = "google"
+            user.tier_id = tier.id
             db.commit()
         else:
             user = models.User(
@@ -115,6 +121,7 @@ async def google_callback(
                 google_id=google_id,
                 auth_provider="google",
                 password_hash=None,
+                tier_id=tier.id
             )
             db.add(user)
         db.commit()
