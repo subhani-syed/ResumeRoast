@@ -10,12 +10,12 @@ from app.tasks.roast_task import process_roast_job
 from app.tasks.thumbnail import generate_thumbnail_task
 from app.config import settings
 from app.utils.text_extraction import extract_text_from_file
+from app.dependency import roast_limit
 from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 
 S3_BUCKET = settings.S3_BUCKET_NAME
-MAX_RESUMES = settings.MAX_RESUMES_PER_USER
 
 router = APIRouter(prefix="/resume", tags=["auth"])
 
@@ -93,7 +93,8 @@ def get_upload_information(
         )
         .scalar()
     )
-    resume_remaining = max(0, MAX_RESUMES - resume_count)
+    max_resume_count = current_user.tier.max_resume_uploads
+    resume_remaining = max(0, max_resume_count - resume_count)
 
     return {
         "resume_count": resume_count,
@@ -199,10 +200,12 @@ def upload_resume(
         .scalar()
     )
 
-    if resume_count >= MAX_RESUMES:
+    max_resume_count = current_user.tier.max_resume_uploads
+
+    if resume_count >= max_resume_count:
         raise HTTPException(
-            status_code=400,
-            detail=f"You can only upload {MAX_RESUMES} resumes."
+            status_code=429,
+            detail=f"You can only upload {max_resume_count} resumes."
         )
 
     if file.content_type not in [
@@ -306,7 +309,7 @@ def get_latest_roast(
 def create_resume_roast(
     resume_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(roast_limit),
 ):
     """
     Initiate an asynchronous roast generation job for a resume.
