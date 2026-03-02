@@ -7,23 +7,29 @@ import Link from "next/link";
 
 const faqs = [
   {
-    question: "Is my resume stored permanently?",
+    question: "Is my resume safe?",
     answer:
-      "No. Your resume is processed securely and deleted after the roast is generated.",
+      "Yes. Your resume is transmitted securely, stored in encrypted cloud storage, and processed through our server-side redaction layer before any AI analysis occurs. The AI model never receives your raw personal identifiers.",
   },
   {
-    question: "How does AI review my resume?",
+    question: "Does the AI see my name, email, or phone number?",
     answer:
-      "We use advanced LLMs trained on hiring patterns to give brutally honest, actionable feedback.",
+      "No. Before sending your resume content to the language model, we automatically redact personally identifiable information (PII) such as names, emails, phone numbers, and addresses. The AI only analyzes anonymized content.",
   },
   {
-    question: "Do you send my personal data to AI?",
+    question: "Do we store your resume?",
     answer:
-      "No. We automatically redact all PII (name, email, phone, address) before sending it to the AI.",
+      "Your resume file is securely stored in encrypted cloud storage to enable processing and results delivery. We do not sell your data or share it with third parties. Access to stored data is restricted and controlled.",
   },
   {
-    question: "Is this only for tech roles?",
-    answer: "No. ResumeRoast works for any industry and career level.",
+    question: "How is ResumeRoast different from other AI resume tools?",
+    answer:
+      "Many tools send raw resumes directly to AI APIs. ResumeRoast adds a privacy layer, we redact sensitive information before AI processing and minimize raw data exposure within our backend.",
+  },
+  {
+    question: "Is ResumeRoast free?",
+    answer:
+      "ResumeRoast offers limited free usage with rate limits to prevent abuse. This allows you to try the product while ensuring fair usage across users.",
   },
 ];
 
@@ -46,7 +52,7 @@ export default function LandingPage() {
 
           <p className="mt-8 text-lg max-w-2xl mx-auto ">
             Brutally honest AI-powered resume reviews that expose weaknesses,
-            fluff, and missed opportunities — so recruiters don’t.
+            fluff, and missed opportunities, so recruiters don’t.
           </p>
 
           <div className="mt-10 flex justify-center gap-4">
@@ -71,7 +77,7 @@ export default function LandingPage() {
               <p className="text-gray-300 text-lg leading-relaxed">
                 ResumeRoast uses cutting-edge AI models trained on hiring
                 patterns, recruiter psychology, and ATS behavior to give you
-                actionable feedback — not generic advice.
+                actionable feedback, not generic advice.
               </p>
             </div>
 
@@ -79,7 +85,7 @@ export default function LandingPage() {
               <h4 className="text-2xl font-semibold mb-4">🔐 Privacy First</h4>
               <p className="text-white">
                 Before your resume is analyzed, we automatically redact all
-                personally identifiable information — including name, phone,
+                personally identifiable information, including name, phone,
                 email, and address.
               </p>
               <p className="text-gray-300 mt-4">
@@ -157,9 +163,12 @@ export default function LandingPage() {
 
         <section className="text-center pb-24">
           <h3 className="text-5xl font-bold mb-8">Ready to Face the Truth?</h3>
-          <button className="px-10 py-5 rounded bg-linear-to-r from-blue-500 to-cyan-500 text-xl font-semibold hover:scale-105 transition">
+          <Link
+            href="/home"
+            className="px-10 py-5 rounded bg-linear-to-r from-blue-500 to-cyan-500 text-xl font-semibold hover:scale-105 transition"
+          >
             Roast My Resume Now 🔥
-          </button>
+          </Link>
         </section>
 
         <footer className="border-t border-white/10 py-10 px-6 text-center text-gray-300">
