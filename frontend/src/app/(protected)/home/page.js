@@ -1,13 +1,12 @@
 "use client";
 
-import { config } from "@/lib/config";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 
 import { useEffect, useState } from "react";
 
-const API_ENDPOINT = config.apiUrl;
+const API_BASE = "/api";
 
 export default function HomePage() {
   const [resumes, setResumes] = useState([]);
@@ -21,7 +20,7 @@ export default function HomePage() {
     try {
       setLoading(true);
 
-      const res = await fetch(`${API_ENDPOINT}/resume/${resumeToDelete}`, {
+      const res = await fetch(`${API_BASE}/resume/${resumeToDelete}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -51,7 +50,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchResumes = async () => {
       try {
-        const res = await fetch(`${API_ENDPOINT}/resume`, {
+        const res = await fetch(`${API_BASE}/resume/`, {
           credentials: "include",
         });
         if (!res.ok) {

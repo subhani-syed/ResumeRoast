@@ -6,10 +6,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import RoastLoader from "@/components/RoastLoader";
-import { config } from "@/lib/config";
 import { toast } from "sonner";
 
-const API_BASE = config.apiUrl;
+const API_BASE = "/api";
 
 export default function RoastPage() {
   const params = useParams();

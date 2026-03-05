@@ -2,13 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { config } from "./config";
 
 export default function LogoutButton() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    await fetch(`${config.apiUrl}/auth/logout`, {
+    await fetch("api/auth/logout", {
       method: "POST",
       credentials: "include",
     });

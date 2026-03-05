@@ -1,11 +1,10 @@
 "use client";
 
-import { config } from "@/lib/config";
 import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-const API_BASE = config.apiUrl;
+const API_BASE = "/api";
 
 function UploadLoader() {
   const [dots, setDots] = useState("");

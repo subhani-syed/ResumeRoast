@@ -4,9 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { config } from "@/lib/config";
 
-const API_BASE = config.apiUrl;
+const API_BASE = "/api";
 
 export default function LoginPage() {
   const router = useRouter();

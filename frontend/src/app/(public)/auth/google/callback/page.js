@@ -9,12 +9,9 @@ export default function GoogleCallback() {
   useEffect(() => {
     const validateSession = async () => {
       try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/me`,
-          {
-            credentials: "include",
-          }
-        );
+        const res = await fetch(`/api/me`, {
+          credentials: "include",
+        });
 
         if (res.ok) {
           router.replace("/home?welcome=true");
