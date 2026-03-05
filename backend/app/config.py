@@ -1,7 +1,9 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from typing import List
 class Settings(BaseSettings):
     DATABASE_URL: str
+
+    CORS_ALLOWED_ORIGINS:List[str]
 
     S3_BUCKET_NAME: str
     AWS_REGION: str

@@ -19,16 +19,16 @@ async def lifespan(app: FastAPI):
     yield
     close_redis()
 
-app = FastAPI(lifespan=lifespan)
-
-origins = [
-    "http://localhost:3000",
-    "http://ui:3000",
-]
+app = FastAPI(
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
