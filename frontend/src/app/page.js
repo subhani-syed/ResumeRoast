@@ -35,10 +35,26 @@ const faqs = [
 
 export default function LandingPage() {
   const [openIndex, setOpenIndex] = useState(null);
+  const navItems = [
+    { label: "Features", href: "/#features" },
+    { label: "Reviews", href: "/#reviews" },
+    { label: "FAQ", href: "/#faq" },
+    { label: "How It Works", href: "/privacy" },
+  ];
 
   return (
     <>
-      <Navbar />
+      <Navbar
+        items={navItems}
+        rightComponent={
+          <Link
+            href="/home"
+            className="px-6 py-2 rounded bg-linear-to-r from-blue-500 to-cyan-500 text-sm font-semibold hover:opacity-90 transition"
+          >
+            Get Started
+          </Link>
+        }
+      />
       <main className="bg-black/60 min-h-screen">
         <div className="absolute inset-0 -z-10  blur-3xl" />
         <section className="text-center px-6 pt-24 pb-32 max-w-4xl mx-auto">
