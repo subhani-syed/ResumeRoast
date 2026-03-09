@@ -7,8 +7,11 @@ import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import RoastLoader from "@/components/RoastLoader";
 import { toast } from "sonner";
+import dynamic from "next/dynamic";
 
 const API_BASE = "/api";
+
+const PDFViewer = dynamic(() => import("./PDFViewer"), { ssr: false });
 
 export default function RoastPage() {
   const params = useParams();
@@ -236,11 +239,10 @@ export default function RoastPage() {
             </a>
           </div>
 
-          <div className="h-[75vh] bg-gray-100 dark:bg-neutral-800">
-            <iframe
-              src={resume?.download_url}
-              className="w-full h-full"
-              title="Resume PDF"
+          <div className="h-[75vh] overflow-y-auto bg-gray-100 dark:bg-neutral-800">
+            <PDFViewer
+              className="w-full"
+              fileUrl={resume?.download_url}
             />
           </div>
         </div>
@@ -300,7 +302,7 @@ export default function RoastPage() {
           <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 w-full max-w-sm shadow-2xl border dark:border-white/10">
             <h2 className="text-lg font-semibold mb-2">Delete Resume?</h2>
             <p className="text-sm text-gray-500 mb-6">
-              This resume will be moved to trash. You can't restore it later.
+              This resume will be moved to trash. You can&apos;t restore it later.
             </p>
 
             <div className="flex justify-end gap-3">
