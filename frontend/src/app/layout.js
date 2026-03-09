@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "ResumeRoast",
   description: "Get Your Resume Roasted",
+  icons: {
+    icon: [
+      { url: "/ResumeRoast.png", type: "image/png" }
+    ]
+  }
 };
 
 export default async function RootLayout({ children }) {
